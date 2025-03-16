@@ -1,4 +1,3 @@
-````markdown
 # Cenomi Malls Chatbot for Tenant Data Operations
 
 ## Project Overview
@@ -145,7 +144,6 @@ To start the chatbot, run the main agent script:
 ```bash
 python agent/agent_graph.py
 ```
-````
 
 This command will:
 
