@@ -1,8 +1,0 @@
-groq:
-  api_key: os.environ.get('GROQ_API_KEY')
-
-database:
-  db_uri: postgresql://cenomi_owner:npg_C2FBJbKqSY3H@ep-sparkling-sun-a1ye4tdb-pooler.ap-southeast-1.aws.neon.tech/cenomi?sslmode=require
-
-chromadb:
-  persist_directory: "D:/cenomi_malls_chatbot/data/chroma"
