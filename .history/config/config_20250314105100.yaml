@@ -1,0 +1,8 @@
+groq:
+  api_key: os.environ.get('GROQ_API_KEY')
+
+database:
+  db_uri: "postgresql://cenomi_owner:npg_kAU5vEb1zWNi@ep-aged-union-a1e51fsh-pooler.ap-southeast-1.aws.neon.tech/cenomi?sslmode=require"
+
+chromadb:
+  persist_dir: "../data/chroma"
