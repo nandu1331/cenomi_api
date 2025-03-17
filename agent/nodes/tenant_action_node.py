@@ -10,7 +10,7 @@ from utils.extract_fields_from_query import extract_fields_from_query
 from utils.get_required_fields import RequiredFieldsCalculator
 
 config = load_config()
-llm = init_chat_model(model="gemma2-9b-it", model_provider="groq")
+llm = init_chat_model(model="deepseek-r1-distill-llama-70b", model_provider="groq")
 output_parser = StrOutputParser()
 db_schema_str = load_database_schema_from_cache()
 required_fields_cal = RequiredFieldsCalculator()
@@ -145,6 +145,7 @@ def handle_tenant_data_operation(state: AgentState, intent: IntentCategory, user
         print(f"handle_tenant_data_operation - Generated Enhanced User Query String: {enhanced_user_query}")
 
         updated_state = state.copy()
+        print("Enhanced User Query: \n", enhanced_user_query)
         updated_state["user_query"] = enhanced_user_query # Set the LLM-generated user query
         updated_state["next_node"] = "tool_selection_node" # Route to tool selection
         updated_state["current_field_index"] = None

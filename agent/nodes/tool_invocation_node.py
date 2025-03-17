@@ -11,30 +11,50 @@ from langchain_community.utilities import SQLDatabase
 from langchain.chat_models import init_chat_model
 from utils.database_utils import get_database_schema_string
 
-config = load_config()
-db_schema_str = get_database_schema_string(use_cache=True)
-
 import re
 from langchain_core.output_parsers import BaseOutputParser
+
+config = load_config()
+db_schema_str = get_database_schema_string(use_cache=True)
 
 class SQLOutputParser(BaseOutputParser[str]):
     """
     A dedicated SQL output parser that validates and formats the SQL query string.
-    It ensures the output starts with a valid SQL command and trims any unwanted whitespace.
+    It ensures the output starts with a valid SQL command and trims any unwanted whitespace,
+    markdown code blocks, and other artifacts commonly found in LLM responses.
     """
     
     def parse(self, text: str) -> str:
-        # Remove extra whitespace and trailing semicolons.
-        query = text.strip().rstrip(";").strip() + ";"
+        # First, remove any markdown code blocks
+        # Pattern matches triple backticks with optional language identifier and any content inside
+        clean_text = re.sub(r'```(?:sql)?\s*([\s\S]*?)```', r'\1', text)
+        
+        # Remove any potential output or response formatting
+        clean_text = re.sub(r'SQL Query:|Query:|Output:', '', clean_text, flags=re.IGNORECASE)
+        
+        # Remove extra whitespace, newlines, and trailing semicolons
+        query = clean_text.strip().rstrip(";").strip()
+        
         if not query:
             raise ValueError("No SQL query output provided.")
         
-        # Validate that the query begins with one of the expected SQL commands.
-        valid_commands = ("SELECT", "UPDATE", "INSERT", "DELETE")
-        # Use a regex to match the beginning of the query.
-        pattern = re.compile(rf"^({'|'.join(valid_commands)})", re.IGNORECASE)
+        # Validate that the query begins with one of the expected SQL commands
+        valid_commands = ("SELECT", "UPDATE", "INSERT", "DELETE", "CREATE", "ALTER", "DROP", "TRUNCATE", "BEGIN", "COMMIT", "ROLLBACK", "WITH")
+        # Use a regex to match the beginning of the query, ignoring case and allowing whitespace
+        pattern = re.compile(rf"^\s*({'|'.join(valid_commands)})\b", re.IGNORECASE)
+        
         if not pattern.match(query):
             raise ValueError(f"Output does not look like a valid SQL query: {query}")
+        
+        # Add back a single semicolon to the end
+        query = query + ";"
+        
+        # Final cleanup to ensure consistent formatting
+        # Replace multiple whitespaces with a single space
+        query = re.sub(r'\s+', ' ', query)
+        # Ensure newlines after major SQL keywords for readability
+        for cmd in ["SELECT", "FROM", "WHERE", "GROUP BY", "HAVING", "ORDER BY", "LIMIT", "INSERT INTO", "VALUES", "UPDATE", "SET", "DELETE FROM"]:
+            query = re.sub(rf'({cmd})\s+', rf'\1\n', query, flags=re.IGNORECASE)
         
         return query
 
@@ -52,7 +72,7 @@ def generate_sql_query(user_query: str, intent: IntentCategory, conversation_his
     print(f"User Query for SQL Query Generation: {user_query}")
     print(f"Intent for SQL Query Generation: {intent}")
     
-    llm = init_chat_model(model="gemma2-9b-it", model_provider="groq")
+    llm = init_chat_model(model="llama-3.3-70b-versatile", model_provider="groq")
     output_parser = StrOutputParser()
     
     
