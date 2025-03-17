@@ -1,4 +1,4 @@
-# main.py
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from agent.agent_graph import create_agent_graph
@@ -19,6 +19,7 @@ class ChatResponse(BaseModel):
 
 
 agent_graph = create_agent_graph()
+conversation_history = {}
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -27,16 +28,18 @@ async def chat(request: ChatRequest):
     """
     try:
         
+        user_id = request.user_id
+        if user_id not in conversation_history:
+            conversation_history[user_id] = []
         input_data = {
             "user_query": request.text,
-            "conversation_history": [],
-            "user_id": request.user_id,
+            "conversation_history": conversation_history[user_id],
+            "user_id": user_id,
             "language": request.language
         }
-
         result = agent_graph.invoke(input_data, {"recursion_limit": 500})
-
         response_text = result.get("response", "Sorry, I couldn't process your request.")
+        conversation_history[user_id].append({"user": request.text, "bot": response_text})
         return ChatResponse(message=response_text)
 
     except Exception as e:
