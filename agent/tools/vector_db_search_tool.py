@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 from langchain.tools import BaseTool
 from utils.database_utils import get_vector_db_client, get_vector_db_collection
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -49,7 +49,6 @@ class VectorDBSearchTool(BaseTool):
                     output_string += f"Metadata: {metadata}\n"
                 output_string += "\n"
                 
-            print("VectorDBSearchTool Results:\n", output_string)
             return output_string
         
         except Exception as e:

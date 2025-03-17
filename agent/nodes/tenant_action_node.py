@@ -1,8 +1,7 @@
 from typing import Dict, Any, List
 from agent_state import AgentState
-from nodes.intent_router_node import IntentCategory # This is our sql_database_query tool
+from nodes.intent_router_node import IntentCategory
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.chat_models import init_chat_model
 from langchain_core.output_parsers import StrOutputParser
 from config.config_loader import load_config
 from utils.database_utils import load_database_schema_from_cache
@@ -14,9 +13,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 config = load_config()
 # llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
-api_key = "AIzaSyCsm_mqOBKXeu72mdRAzQUqLptlWjMiJ6o"
-    # llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=api_key)
+llm = ChatGoogleGenerativeAI(model=config.llm.model_name, api_key=config.llm.api_key)
 output_parser = StrOutputParser()
 db_schema_str = load_database_schema_from_cache()
 required_fields_cal = RequiredFieldsCalculator()
@@ -29,8 +26,6 @@ def tenant_action_node(state: AgentState) -> AgentState:
     intent: IntentCategory = state.get("intent")
     user_query: str = state.get("user_query")
     main_query: str = state.get("tenant_main_query")
-
-    print(f"Tenant Action Node - Intent: {intent}, User Query: {main_query}")
 
     updated_state: AgentState = state.copy()
     if updated_state.get("current_field_index") is None:
@@ -75,14 +70,12 @@ def handle_tenant_data_operation(state: AgentState, intent: IntentCategory, user
         entity_type = "store"
         operation_type = "update"
     else:
-        print(f"handle_tenant_data_operation - No entity/operation mapping for intent: {intent}. Defaulting to LLM call node.")
         state["next_node"] = "llm_call_node"
         return state
 
     extracted_data = extract_fields_from_query(user_query, entity_type)
     extracted_fields = ", ".join(extracted_data.keys())
     state["tenant_data"].update(extracted_data)
-    print(f"handle_tenant_data_operation - Initial Extracted Data: {state.get('tenant_data')}")
     
     if not current_field_index:
         required_fields = required_fields_cal.calculate_required_fields(intent, main_query, db_schema_str, extracted_fields)
@@ -130,7 +123,6 @@ def handle_tenant_data_operation(state: AgentState, intent: IntentCategory, user
     print(f"handle_tenant_data_operation - Finished field collection WHILE loop. All required fields collected in tenant_data: {tenant_data}, Proceeding to query generation...")
 
     try:
-        print("handle_tenant_data_operation - Generating user query string for tool workflow...")
         
         enhanced_user_query_prompt_template = ChatPromptTemplate.from_messages([
             ("system", f"""
@@ -162,10 +154,7 @@ def handle_tenant_data_operation(state: AgentState, intent: IntentCategory, user
             "db_schema": db_schema_str  # Pass database schema to the prompt
         })
 
-        print(f"handle_tenant_data_operation - Generated Enhanced User Query String: {enhanced_user_query}")
-
         updated_state = state.copy()
-        print("Enhanced User Query: \n", enhanced_user_query)
         updated_state["user_query"] = enhanced_user_query # Set the LLM-generated user query
         updated_state["next_node"] = "tool_selection_node" # Route to tool selection
         updated_state["current_field_index"] = None

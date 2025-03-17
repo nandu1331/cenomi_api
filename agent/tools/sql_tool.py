@@ -5,7 +5,7 @@ from utils.database_utils import get_db_connection
 class SQLDatabaseTool(BaseTool):
     """Tool to execute SQL queries and retrieve results from the database."""
 
-    name: str = "sql_database_query"  # Descriptive tool name
+    name: str = "sql_database_query"
     description: str = (
         "Useful for retrieving structured information directly from the mall database. "
         "Input should be a SQL query. Be precise and use correct SQL syntax for Neon Postgres. "
@@ -42,7 +42,6 @@ class SQLDatabaseTool(BaseTool):
                         row_str = "| " + " | ".join([str(val) for val in row]) + " |\n"
                         output_string += row_str
                         
-                    print("SQLDatabaseTool Results:\n", output_string)
                     return output_string
                 else:
                     # For non-SELECT queries, just return a success message.

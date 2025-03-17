@@ -1,9 +1,10 @@
-from typing import Dict, Any, List
 from enum import Enum
-from langchain.chat_models import init_chat_model
 from agent.agent_state import AgentState
 from langchain.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
+from config.config_loader import load_config
+
+config = load_config()
 
 class IntentCategory(str, Enum):
     """Intent categories for the IntentRouterNode."""
@@ -39,9 +40,8 @@ class IntentCategory(str, Enum):
     TENANT_DELETE_EVENT = "tenant_delete_event"
     
 # intent_llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
-api_key = "AIzaSyCsm_mqOBKXeu72mdRAzQUqLptlWjMiJ6o"
     # llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
-intent_llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=api_key)
+intent_llm = ChatGoogleGenerativeAI(model=config.llm.model_name, api_key=config.llm.api_key)
 
 def intent_router_node(state: AgentState) -> AgentState:
     """
@@ -49,8 +49,6 @@ def intent_router_node(state: AgentState) -> AgentState:
     """
     user_query = state["user_query"]
     conversation_history_str = state.get("conversation_history", "")
-    
-    print(f"User query for Intent Routing: {user_query}")
     
     intent_prompt_template = ChatPromptTemplate.from_messages(
         [
@@ -136,14 +134,10 @@ def intent_router_node(state: AgentState) -> AgentState:
     
     intent_response = intent_llm.invoke(intent_prompt)
     intent_category_str = intent_response.content.strip()
-    updated_state = AgentState = state.copy()
-    
-    print(f"Intent LLM Response: {intent_response.content}")
-    print(f"Extracted Intent Category String: {intent_category_str}")
+    updated_state = state.copy()
     
     try:
         intent_category = IntentCategory(intent_category_str)
-        print(f"Parsed Intent Category: {intent_category}")
         if intent_category in [
             IntentCategory.GREETING,
             IntentCategory.POLITE_CLOSING
@@ -175,7 +169,6 @@ def intent_router_node(state: AgentState) -> AgentState:
             IntentCategory.TENANT_INSERT_EVENT,
             IntentCategory.TENANT_DELETE_EVENT,
         ]:
-            print(f"Routing to tenant action node for intent: {intent_category}")
             updated_state["tenant_main_query"] = user_query
             next_node = "tenant_action_node"
         elif intent_category == IntentCategory.TENANT_ACTION:

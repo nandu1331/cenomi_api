@@ -1,10 +1,13 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.chat_models import init_chat_model
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import JsonOutputParser
-
-llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
 json_output_parser = JsonOutputParser()
+from config.config_loader import load_config
+
+config = load_config()
+
+llm = ChatGoogleGenerativeAI(model=config.llm.model_name, api_key=config.llm.api_key)
 
 # --- Fixed Prompt Template for Field Extraction ---
 field_extraction_prompt_template = ChatPromptTemplate.from_messages([
@@ -47,7 +50,6 @@ def extract_fields_from_query(user_query: str, entity_type: str) -> Dict[str, An
         Dict[str, Any]: A dictionary containing extracted field-value pairs.
                        Returns an empty dictionary if no fields are extracted.
     """
-    print(f"extract_fields_from_query - User Query: {user_query}, Entity Type: {entity_type}")
     try:
         # Add formatting instructions and use the JSON output parser
         field_extraction_chain = field_extraction_prompt_template | llm | json_output_parser
@@ -58,7 +60,6 @@ def extract_fields_from_query(user_query: str, entity_type: str) -> Dict[str, An
             "entity_type": entity_type
         })
         
-        print(f"extract_fields_from_query - Extracted Tenant Data (Dictionary): {extraction_response}")
         return extraction_response
         
     except Exception as e:
@@ -69,10 +70,8 @@ def extract_fields_from_query(user_query: str, entity_type: str) -> Dict[str, An
         # Try fallback method if available
         try:
             if isinstance(e.__cause__, UnicodeEncodeError) or "UnicodeEncodeError" in str(e):
-                print("Unicode encoding error - attempting to handle non-ASCII characters")
                 # Handle non-ASCII characters in the query
                 user_query_ascii = user_query.encode('ascii', 'ignore').decode('ascii')
-                print(f"Retrying with ASCII-only query: {user_query_ascii}")
                 return extract_fields_from_query(user_query_ascii, entity_type)
         except Exception:
             pass

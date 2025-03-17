@@ -6,9 +6,7 @@ from tools.sql_tool import SQLDatabaseTool
 from config.config_loader import load_config
 from nodes.intent_router_node import IntentCategory
 from langchain.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_community.utilities import SQLDatabase
-from langchain.chat_models import init_chat_model
+from langchain_google_genai import ChatGoogleGenerativeAI
 from utils.database_utils import load_database_schema_from_cache
 
 import re
@@ -16,6 +14,7 @@ from langchain_core.output_parsers import BaseOutputParser
 
 config = load_config()
 db_schema_str = load_database_schema_from_cache()
+llm = ChatGoogleGenerativeAI(model=config.llm.model_name, api_key=config.llm.api_key)
 
 class SQLOutputParser(BaseOutputParser[str]):
     """
@@ -70,11 +69,6 @@ def generate_sql_query(user_query: str, intent: IntentCategory, conversation_his
     with improved handling for vague queries.
     """
     print("--- generate_dynamic_sql_query ---")
-    print(f"User Query for SQL Query Generation: {user_query}")
-    print(f"Intent for SQL Query Generation: {intent}")
-    
-    llm = init_chat_model(model="qwen-2.5-32b", model_provider="groq")
-    output_parser = StrOutputParser()
     
     sql_generation_prompt = ChatPromptTemplate.from_messages(
     [
@@ -191,8 +185,6 @@ def tool_invocation_node(state: AgentState) -> AgentState:
     print("--- Tool Invocation Node ---")
     selected_tool_names: List[str] = state.get("selected_tools", [])
     
-    print(f"Tools selected for invocation: {selected_tool_names}")
-    
     tool_outputs: Dict[str, str] = {}
     
     user_query = state["user_query"]
@@ -208,7 +200,6 @@ def tool_invocation_node(state: AgentState) -> AgentState:
             hybrid_context = state.get("conversation_history", "")
             tool_output = vector_db_search_tool.invoke(user_query, context=hybrid_context)
             tool_outputs[ToolName.VECTOR_DB_SEARCH.value] = tool_output
-            print(f"VectorDB Search Tool Output:\n{tool_output}")
         elif tool_name == ToolName.SQL_DATABASE_QUERY:
             print(f"Invoking SQL Database Tool...")
             sql_database_tool = SQLDatabaseTool() 
@@ -223,7 +214,6 @@ def tool_invocation_node(state: AgentState) -> AgentState:
                 print("Executing Dynamic SQL Query...")
                 tool_output = sql_database_tool.run(dynamic_sql_query)
                 tool_outputs[ToolName.SQL_DATABASE_QUERY.value] = tool_output
-                print(f"SQL Database Tool Output:\n{tool_output}")
             else:
                 fallback_message = generate_fallback_query_message(user_query)
                 tool_outputs[ToolName.SQL_DATABASE_QUERY.value] = fallback_message

@@ -1,4 +1,4 @@
-from langchain.chat_models import init_chat_model
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from config.config_loader import load_config
@@ -12,10 +12,9 @@ def evaluate_relevance_function(user_query: str, tool_output: str, intent: Inten
     Returns a relevance score (0.0 to 1.0), higher is more relevant.
     """
     print("--- evaluate_relevance_function ---")
-    print(f"Evaluating relevance for User Query: {user_query}")
-    print(f"Tool Output to Evaluate:\n{tool_output}")
 
-    llm = init_chat_model(model="gemma2-9b-it", model_provider="groq")
+    llm = ChatGoogleGenerativeAI(model=config.llm.model_name, api_key=config.llm.api_key)
+    
     output_parser = StrOutputParser()
 
     relevance_prompt = ChatPromptTemplate.from_messages(
@@ -61,11 +60,10 @@ def evaluate_relevance_function(user_query: str, tool_output: str, intent: Inten
             "tool_output": tool_output,
             "intent": intent, # Pass intent as context
         })
-        relevance_score = float(relevance_score_str.strip()) # Convert string to float and strip whitespace
-        print(f"Raw Relevance Score from LLM: {relevance_score_str}, Parsed Score: {relevance_score}")
+        relevance_score = float(relevance_score_str.strip())
         return relevance_score
 
     except Exception as e:
         error_message = f"Error evaluating relevance: {e}"
         print(error_message)
-        return 0.0 # Default to 0.0 relevance in case of error
+        return 0.0
