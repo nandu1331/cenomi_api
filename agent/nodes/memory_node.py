@@ -9,7 +9,7 @@ buffer_memory = ConversationBufferMemory(
     output_key="response"
 )
 summary_memory = ConversationSummaryMemory(
-    llm=init_chat_model(model="gemma2-9b-it", model_provider="groq"), 
+    llm=init_chat_model(model="llama3-70b-8192", model_provider="groq"), 
     memory_key="summary_history", 
     input_key="user_query", 
     output_key="response"

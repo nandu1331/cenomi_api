@@ -3,7 +3,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.chat_models import init_chat_model
 from langchain_core.output_parsers import JsonOutputParser
 
-llm = init_chat_model(model="gemma2-9b-it", model_provider="groq")
+llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
 json_output_parser = JsonOutputParser()
 
 # --- Fixed Prompt Template for Field Extraction ---

@@ -3,6 +3,7 @@ from enum import Enum
 from langchain.chat_models import init_chat_model
 from agent.agent_state import AgentState
 from langchain.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 class IntentCategory(str, Enum):
     """Intent categories for the IntentRouterNode."""
@@ -37,7 +38,10 @@ class IntentCategory(str, Enum):
     TENANT_INSERT_EVENT = "tenant_insert_event"
     TENANT_DELETE_EVENT = "tenant_delete_event"
     
-intent_llm = init_chat_model(model="gemma2-9b-it", model_provider="groq")
+# intent_llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
+api_key = "AIzaSyCsm_mqOBKXeu72mdRAzQUqLptlWjMiJ6o"
+    # llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
+intent_llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=api_key)
 
 def intent_router_node(state: AgentState) -> AgentState:
     """

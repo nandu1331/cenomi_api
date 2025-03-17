@@ -3,6 +3,7 @@ from langchain.chat_models import init_chat_model
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from config.config_loader import load_config
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 config = load_config()
 
@@ -28,8 +29,10 @@ def llm_call_node(state: AgentState) -> AgentState:
             context_str += f"{tool_name}:\n{output}\n"
     else:
         context_str += "No tool output generated.\n"
-        
-    llm = init_chat_model(model="gemma2-9b-it", model_provider="groq")
+    
+    api_key = "AIzaSyCsm_mqOBKXeu72mdRAzQUqLptlWjMiJ6o"
+    # llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=api_key)
     output_parser = StrOutputParser()
     
     response_prompt = ChatPromptTemplate.from_messages(

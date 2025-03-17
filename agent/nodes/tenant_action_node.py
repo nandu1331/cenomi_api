@@ -8,9 +8,15 @@ from config.config_loader import load_config
 from utils.database_utils import load_database_schema_from_cache
 from utils.extract_fields_from_query import extract_fields_from_query
 from utils.get_required_fields import RequiredFieldsCalculator
+from utils.primary_key_handler import PrimaryKeyHandler
+from agent.tools.sql_tool import SQLDatabaseTool
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 config = load_config()
-llm = init_chat_model(model="deepseek-r1-distill-llama-70b", model_provider="groq")
+# llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
+api_key = "AIzaSyCsm_mqOBKXeu72mdRAzQUqLptlWjMiJ6o"
+    # llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=api_key)
 output_parser = StrOutputParser()
 db_schema_str = load_database_schema_from_cache()
 required_fields_cal = RequiredFieldsCalculator()
@@ -82,7 +88,21 @@ def handle_tenant_data_operation(state: AgentState, intent: IntentCategory, user
         required_fields = required_fields_cal.calculate_required_fields(intent, main_query, db_schema_str, extracted_fields)
         print(f"handle_tenant_data_operation - Calculated Required Fields: {required_fields}")
     
-    missing_fields = [field for field in required_fields if field not in state.get("tenant_data", {})]
+    pk_handler = PrimaryKeyHandler(db_schema_str, SQLDatabaseTool)
+    
+    state["tenant_data"] = pk_handler.handle_primary_keys(
+        required_fields,
+        entity_type,
+        operation_type,
+        state["tenant_data"]
+    )
+    
+    print("Handled primary key: \n", tenant_data)
+    
+    missing_fields = [
+        field for field in required_fields 
+        if field not in state.get("tenant_data", {}) and not pk_handler.is_primary_key(field, entity_type)
+    ]
     
     while missing_fields:
         field = missing_fields[0] # Get the first missing field

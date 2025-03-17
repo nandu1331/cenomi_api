@@ -50,7 +50,7 @@ required_fields_prompt_template = ChatPromptTemplate.from_messages([
 class RequiredFieldsCalculator:
     """Enhanced class for calculating required fields with caching and validation"""
     
-    def __init__(self, model_name="gemma2-9b-it", model_provider="groq", cache_ttl=3600):
+    def __init__(self, model_name="llama3-70b-8192", model_provider="groq", cache_ttl=3600):
         """
         Initialize the calculator with specified model and caching parameters.
         
