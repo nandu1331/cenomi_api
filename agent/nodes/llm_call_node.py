@@ -18,10 +18,6 @@ def llm_call_node(state: AgentState) -> AgentState:
     tool_output = state.get("tool_outputs", {})
     conversation_history = state.get("conversation_history", "")
     
-    print(f"LLM Call Node - User Query: {user_query}")
-    print(f"LLM Call Node - Intent: {intent}")
-    print(f"LLM Call Node - Tool Output: {tool_output}")
-    
     context_str = ""
     if tool_output:
         context_str = "Tool Output:\n"
@@ -29,10 +25,8 @@ def llm_call_node(state: AgentState) -> AgentState:
             context_str += f"{tool_name}:\n{output}\n"
     else:
         context_str += "No tool output generated.\n"
-    
-    api_key = "AIzaSyCsm_mqOBKXeu72mdRAzQUqLptlWjMiJ6o"
     # llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
-    llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=api_key)
+    llm = ChatGoogleGenerativeAI(model=config.llm.model_name, api_key=config.llm.api_key)
     output_parser = StrOutputParser()
     
     response_prompt = ChatPromptTemplate.from_messages(
@@ -83,7 +77,6 @@ def llm_call_node(state: AgentState) -> AgentState:
             "conversation_history": conversation_history,
             "context_information": context_str
         })
-        print("LLM Call Node - Generated Response:\n", llm_response_text)
         updated_state: AgentState = state.copy()
         updated_state["response"] = llm_response_text
         updated_state["next_node"] = "output_node"

@@ -16,13 +16,10 @@ def input_node(state):
     current_field_index: int = state.get("current_field_index", 0)
     if not current_field_index:
         current_field_index = 0
-    
-    print(f"Input Node - User Query: {user_query}, Awaiting Input Field: {awaiting_tenant_input_field}")
 
     updated_state: AgentState = state.copy()
 
     if awaiting_tenant_input_field: # If agent is waiting for specific input (multi-turn tenant action)
-        print(f"Input Node - Agent is awaiting input for field: {awaiting_tenant_input_field}")
         tenant_data[awaiting_tenant_input_field] = user_query # Store tenant input in tenant_data - CORRECTED LINE
         updated_state["tenant_data"] = tenant_data # Update tenant_data in state - CORRECTED LINE
         # updated_state["awaiting_tenant_input_field"] = None # Clear awaiting field as input is received 

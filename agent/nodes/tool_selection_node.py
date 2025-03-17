@@ -1,27 +1,24 @@
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List
 from agent_state import AgentState
 from nodes.intent_router_node import IntentCategory
 from enum import Enum
 from utils.relevance_utils import evaluate_relevance_function
-from tools.sql_tool import SQLDatabaseTool
 from tools.vector_db_search_tool import VectorDBSearchTool
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.chat_models import init_chat_model
 from langchain_core.output_parsers import StrOutputParser
 import re
 from langchain_google_genai import ChatGoogleGenerativeAI
+from config.config_loader import load_config
 
+config = load_config()
 # Define Tool Names
 class ToolName(str, Enum):
     VECTOR_DB_SEARCH = "vector_db_search_tool"
     SQL_DATABASE_QUERY = "sql_database_query_tool"
     NO_TOOL = "no_tool"  # For direct LLM responses
 
-# # Initialize LLM for tool selection decisions
-# llm = init_chat_model(model="deepseek-r1-distill-llama-70b", model_provider="groq")
-api_key = "AIzaSyCsm_mqOBKXeu72mdRAzQUqLptlWjMiJ6o"
-    # llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=api_key)
+# llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
+llm = ChatGoogleGenerativeAI(model=config.llm.model_name, api_key=config.llm.api_key)
 output_parser = StrOutputParser()
 
 def tool_selection_node(state: AgentState) -> AgentState:
@@ -31,29 +28,21 @@ def tool_selection_node(state: AgentState) -> AgentState:
     print("--- Intelligent Tool Selection Node ---")
     user_query: str = state.get("user_query")
     intent: IntentCategory = state.get("intent")
-    conversation_history: str = state.get("conversation_history", "")
-
-    print(f"Processing query: '{user_query}'")
-    print(f"Intent received: {intent}")
 
     # 1. Direct routing for conversational intents
     if intent in [IntentCategory.GREETING, IntentCategory.POLITE_CLOSING]:
-        print(f"Routing directly to LLM call node for conversational intent: {intent}")
         return _prepare_response_state(state, [], {}, "llm_call_node")
 
     # 2. Direct routing for tenant actions
     if _is_tenant_action_intent(intent):
-        print(f"Tenant action detected ({intent}). Using SQL Database Tool.")
         return _prepare_response_state(state, [ToolName.SQL_DATABASE_QUERY.value], {}, "tool_invocation_node")
 
     # 3. For out-of-scope intents, go directly to LLM
     if intent == IntentCategory.OUT_OF_SCOPE:
-        print("Out-of-scope intent detected. No tool selection needed.")
         return _prepare_response_state(state, [], {}, "llm_call_node")
 
     # 4. Determine if query is specific or vague and route accordingly
     query_specificity = _analyze_query_specificity(user_query, intent)
-    print(f"Query specificity analysis: {query_specificity}")
     
     # 5. Route based on specificity
     if query_specificity['is_specific']:
@@ -70,8 +59,7 @@ def tool_selection_node(state: AgentState) -> AgentState:
         relevance_score = evaluate_relevance_function(user_query, vector_db_output, intent)
         print(f"VectorDB relevance score: {relevance_score}")
         
-        if relevance_score < 0.6:  # Reduced threshold for vague queries
-            print("VectorDB output not relevant enough. Falling back to SQL Database.")
+        if relevance_score < 0.6:
             selected_tool = ToolName.SQL_DATABASE_QUERY.value
             next_node = "tool_invocation_node"
             tool_output = {}
@@ -79,9 +67,6 @@ def tool_selection_node(state: AgentState) -> AgentState:
             selected_tool = ToolName.VECTOR_DB_SEARCH.value
             next_node = "llm_call_node"
             tool_output = {ToolName.VECTOR_DB_SEARCH.value: vector_db_output}
-    
-    print(f"Selected tool: {selected_tool}")
-    print(f"Next node: {next_node}")
     
     return _prepare_response_state(state, [selected_tool] if selected_tool != ToolName.NO_TOOL.value else [], tool_output, next_node)
 

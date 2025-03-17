@@ -1,12 +1,14 @@
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.chat_models import init_chat_model
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import StrOutputParser
 from typing import List, Dict, Optional, Union, Any
 import json
 import ast
 import enum
 import time
+from config.config_loader import load_config
 
+config = load_config()
 # Assuming IntentCategory is defined as shown
 class IntentCategory(enum.Enum):
     TENANT_INSERT_STORE = "TENANT_INSERT_STORE"
@@ -50,7 +52,7 @@ required_fields_prompt_template = ChatPromptTemplate.from_messages([
 class RequiredFieldsCalculator:
     """Enhanced class for calculating required fields with caching and validation"""
     
-    def __init__(self, model_name="llama3-70b-8192", model_provider="groq", cache_ttl=3600):
+    def __init__(self, model_name=config.llm.model_name, api_key=config.llm.api_key, cache_ttl=3600):
         """
         Initialize the calculator with specified model and caching parameters.
         
@@ -59,9 +61,9 @@ class RequiredFieldsCalculator:
             model_provider (str): The provider of the LLM model
             cache_ttl (int): Time-to-live for cached results in seconds
         """
-        self.llm = init_chat_model(model=model_name, model_provider=model_provider)
+        self.llm = ChatGoogleGenerativeAI(model=model_name, api_key=api_key)
         self.output_parser = StrOutputParser()
-        self.cache = {}  # Simple in-memory cache
+        self.cache = {}
         self.cache_ttl = cache_ttl
         
     def _get_cache_key(self, intent: IntentCategory, user_query: str, db_schema: str) -> str:
@@ -107,7 +109,6 @@ class RequiredFieldsCalculator:
             List[str]: A list of required field names (strings).
                       Returns an empty list if required fields cannot be determined or in case of error.
         """
-        print(f"calculate_required_fields - Intent: {intent}, User Query: {user_query}")
         
         # Check cache first
         cache_key = self._get_cache_key(intent, user_query, db_schema)
@@ -124,18 +125,15 @@ class RequiredFieldsCalculator:
                 "db_schema": db_schema,
                 "existing_fields": existing_fields
             })
-            print(f"calculate_required_fields - LLM Required Fields Response (String): {required_fields_response_str}")
 
             # Parse LLM Response to List using multiple approaches
             required_fields_list = self._parse_llm_response(required_fields_response_str)
             
             if not required_fields_list:
-                print(f"calculate_required_fields - Failed to parse response to list. Response was: {required_fields_response_str}")
                 return []
             
             # Validate fields against schema
             validated_fields = self._validate_fields(required_fields_list, db_schema)
-            print(f"calculate_required_fields - Validated Required Fields: {validated_fields}")
             
             # Cache the result
             self.cache[cache_key] = {
@@ -214,12 +212,7 @@ TEST_DB_SCHEMA = get_db_schema_description(conn)
 
 def main():
     """Main function to demonstrate the RequiredFieldsCalculator"""
-    print("Initializing Required Fields Calculator...")
     calculator = RequiredFieldsCalculator()
-    
-    # Interactive mode
-    print("\n=== Interactive Mode ===")
-    print("Enter your own queries or press Ctrl+C to exit")
     
     try:
         while True:
