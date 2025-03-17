@@ -1,6 +1,6 @@
 from typing import Any
 from langchain.tools import BaseTool
-from utils.database_utils import get_vector_db_client, get_vector_db_collection
+from agent.utils.database_utils import get_vector_db_client, get_vector_db_collection
 from langchain_huggingface import HuggingFaceEmbeddings
 
 class VectorDBSearchTool(BaseTool):

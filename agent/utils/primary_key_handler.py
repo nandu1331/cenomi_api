@@ -1,7 +1,7 @@
 from typing import Dict, Any, List
 import re
 from langchain.tools import BaseTool
-from utils.database_utils import get_db_connection
+from agent.utils.database_utils import get_db_connection
 from agent.tools.sql_tool import SQLDatabaseTool  # Import your SQL execution tool
 
 class PrimaryKeyHandler:

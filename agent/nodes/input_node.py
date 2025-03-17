@@ -1,4 +1,4 @@
-from agent_state import AgentState
+from agent.agent_state import AgentState
 from typing import List, Dict, Any
 
 def input_node(state):

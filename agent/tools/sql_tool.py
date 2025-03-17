@@ -1,6 +1,6 @@
 from typing import Dict, Any
 from langchain.tools import BaseTool
-from utils.database_utils import get_db_connection
+from agent.utils.database_utils import get_db_connection
 
 class SQLDatabaseTool(BaseTool):
     """Tool to execute SQL queries and retrieve results from the database."""

@@ -1,9 +1,9 @@
 from typing import Dict, Any, List
-from agent_state import AgentState
-from nodes.intent_router_node import IntentCategory
+from agent.agent_state import AgentState
+from agent.nodes.intent_router_node import IntentCategory
 from enum import Enum
-from utils.relevance_utils import evaluate_relevance_function
-from tools.vector_db_search_tool import VectorDBSearchTool
+from agent.utils.relevance_utils import evaluate_relevance_function
+from agent.tools.vector_db_search_tool import VectorDBSearchTool
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 import re

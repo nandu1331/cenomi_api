@@ -1,13 +1,13 @@
 from typing import Dict, Any, List
-from agent_state import AgentState
-from nodes.intent_router_node import IntentCategory
+from agent.agent_state import AgentState
+from agent.nodes.intent_router_node import IntentCategory
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from config.config_loader import load_config
-from utils.database_utils import load_database_schema_from_cache
-from utils.extract_fields_from_query import extract_fields_from_query
-from utils.get_required_fields import RequiredFieldsCalculator
-from utils.primary_key_handler import PrimaryKeyHandler
+from agent.utils.database_utils import load_database_schema_from_cache
+from agent.utils.extract_fields_from_query import extract_fields_from_query
+from agent.utils.get_required_fields import RequiredFieldsCalculator
+from agent.utils.primary_key_handler import PrimaryKeyHandler
 from agent.tools.sql_tool import SQLDatabaseTool
 from langchain_google_genai import ChatGoogleGenerativeAI
 

@@ -204,7 +204,7 @@ class RequiredFieldsCalculator:
             return items
         return []
 
-from utils.database_utils import get_db_schema_description, get_db_connection
+from agent.utils.database_utils import get_db_schema_description, get_db_connection
 conn = get_db_connection()
 # Test database schema
 TEST_DB_SCHEMA = get_db_schema_description(conn)

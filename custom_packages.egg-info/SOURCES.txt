@@ -20,6 +20,7 @@ agent/utils/__init__.py
 agent/utils/database_utils.py
 agent/utils/extract_fields_from_query.py
 agent/utils/get_required_fields.py
+agent/utils/primary_key_handler.py
 agent/utils/relevance_utils.py
 config/__init__.py
 config/config_loader.py

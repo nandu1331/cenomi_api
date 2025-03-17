@@ -1,5 +1,5 @@
 from langchain.memory import ConversationBufferMemory, ConversationSummaryMemory
-from agent_state import AgentState
+from agent.agent_state import AgentState
 from config.config_loader import load_config
 from langchain_google_genai import ChatGoogleGenerativeAI
 

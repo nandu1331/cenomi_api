@@ -2,7 +2,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from config.config_loader import load_config
-from nodes.intent_router_node import IntentCategory
+from agent.nodes.intent_router_node import IntentCategory
 
 config = load_config()
 
