@@ -33,6 +33,13 @@ required_fields_prompt_template = ChatPromptTemplate.from_messages([
         **Existing fields:** {existing_fields}
 
         **Instructions:**
+        - Based on the Database Schema and the user query, determine which fields are required to execute the query the user is intending to perform.
+            Examples:
+                user query: I want to update description of offer with offer_id 1
+                correct response: [desctiption_en, description_ar]
+                incorrect response: 
+                
+                
         - Analyze the Tenant Intent to understand the type of data operation (e.g., insert, update, delete) and the entity type (e.g., offer, store).
         - Consider the User Query to see if the user has already provided any information relevant to the required fields.
         - Based on the Database Schema, determine the list of fields that are essential to successfully execute the database operation.

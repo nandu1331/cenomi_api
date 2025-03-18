@@ -15,3 +15,9 @@ class AgentState(TypedDict):
     tenant_data: Dict[str, Any]
     current_field_index: Optional[int]
     tenant_main_query: str
+    field_selection_mode: bool
+    available_fields: str
+    entity_type: str
+    operation_type: str
+    required_fields: List
+    

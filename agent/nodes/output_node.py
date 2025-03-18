@@ -8,6 +8,7 @@ def output_node(state: Dict[str, Any]) -> AgentState:
     
     response = state.get("response", "No response generated.")
     awaiting_tenant_input_field = state.get("awaiting_tenant_input_field")
+    field_selection_mode = state.get("field_selection_mode", False)
     print(f"Agent Response: {response}")
     
     updated_state: AgentState = state.copy()
@@ -24,6 +25,7 @@ def output_node(state: Dict[str, Any]) -> AgentState:
     updated_state["next_node"] = next_node # Set the next node
     updated_state["agent_response"] = response # Keep the agent response
     updated_state["awaiting_tenant_input_field"] = awaiting_tenant_input_field
+    updated_state["field_selection_mode"] = field_selection_mode
     
     if new_query.lower() == "exit":
         return AgentState(

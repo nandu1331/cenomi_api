@@ -21,11 +21,26 @@ field_extraction_prompt_template = ChatPromptTemplate.from_messages([
         **IMPORTANT: You must ONLY output a valid JSON object with no additional text or explanations.**
         
         **Instructions:**
+        - Only extract the fields if they have strict corresponding values if no values exist don't include them or populate them with something else.
+            Example: 
+                query:  I want to update description of offer with offer_id 1
+                correct_response: {{"offer_id": 1}}
+                incorrect_response: {{"offer_id": 1, "description": 'description'}}
         - Analyze the User Query and identify any field names and their corresponding values that are related to the {entity_type}.
         - Assume that field names might be mentioned explicitly or implicitly in the query.
         - Only include fields where values can be reliably extracted.
         - Format your entire response as a valid JSON object.
         - Do not include any wrapper text, explanations, or non-JSON content.
+        
+        **Example:**
+        - Query: "Update the title of Summer Sale to 'Big Sale' and discount to 20%"
+        - Output: {{"offer_name": "Summer Sale", "title_en": "Big Sale", "discount_percentage": "20%"}}
+        
+        - Query: "Set discount to 50% for offer named Black Friday Deal"
+          Output: {{"offer_name": "Black Friday Deal", "discount_percentage": "50%"}}
+          
+        - Query: "Update offer with id 5 to discount 10%"
+          Output: {{"offer_id": "5", "discount_percentage": "10%"}}
         
         **JSON Structure Format:**
         ```json
@@ -40,7 +55,7 @@ field_extraction_prompt_template = ChatPromptTemplate.from_messages([
     ("human", "Extract fields and values from the user query for {entity_type} as JSON only.")
 ])
 
-def extract_fields_from_query(user_query: str, entity_type: str) -> Dict[str, Any]:
+def extract_fields_from_query(user_query: str, entity_type: str, db_schema) -> Dict[str, Any]:
     """
     Extracts fields and their values from the user query using an LLM with guaranteed JSON output.
     Args:
@@ -60,6 +75,7 @@ def extract_fields_from_query(user_query: str, entity_type: str) -> Dict[str, An
             "entity_type": entity_type
         })
         
+        print("Extracted Fields JSON: \n", extraction_response)
         return extraction_response
         
     except Exception as e:
@@ -114,6 +130,7 @@ def ensure_json_output(llm_response: str) -> Dict[str, Any]:
             result = {}
             for key, str_val, non_str_val in pairs:
                 result[key] = str_val if str_val else non_str_val
+            print("Extracted Fields JSON: \n", result)
             return result
     except Exception:
         pass
