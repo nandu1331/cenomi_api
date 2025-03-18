@@ -4,7 +4,7 @@ from agent.nodes.intent_router_node import IntentCategory
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from config.config_loader import load_config
-from agent.utils.database_utils import load_database_schema_from_cache
+from agent.utils.database_utils import get_db_connection, get_db_schema_description, load_database_schema_from_cache
 from agent.utils.extract_fields_from_query import extract_fields_from_query
 from agent.utils.get_required_fields import RequiredFieldsCalculator
 from agent.utils.primary_key_handler import PrimaryKeyHandler
@@ -18,20 +18,53 @@ output_parser = StrOutputParser()
 db_schema_str = load_database_schema_from_cache()
 required_fields_cal = RequiredFieldsCalculator()
 
-def tenant_action_node(state: AgentState) -> AgentState:
-    """
-    Tenant Action Node: Handles tenant data manipulation (CRUD) operations.
-    """
-    print("--- Tenant Action Node ---")
-    intent: IntentCategory = state.get("intent")
-    user_query: str = state.get("user_query")
-    main_query: str = state.get("tenant_main_query")
+def tenant_action_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    if state["role"] != "tenant":
+        return {"response": "Only tenants can perform update operations."}
+    
+    if not state["store_id"]:
+        return {"response": "No store associated with this tenant account."}
 
-    updated_state: AgentState = state.copy()
-    if updated_state.get("current_field_index") is None:
-        updated_state["current_field_index"] = 0
-        
-    return handle_tenant_data_operation(updated_state, intent, user_query, main_query)
+    intent = IntentCategory(state["intent"])
+    entity_type = "store" if "STORE" in intent.value else "offer"
+    user_query = state["user_query"]
+
+    # Initialize tools
+    conn = get_db_connection()
+    schema = get_db_schema_description(conn)
+    sql_tool = SQLDatabaseTool()
+    pk_handler = PrimaryKeyHandler(schema, sql_tool)
+    field_calculator = RequiredFieldsCalculator()
+
+    # Extract fields from query
+    extracted_fields = extract_fields_from_query(user_query, entity_type)
+
+    # Calculate required fields
+    required_fields = field_calculator.calculate_required_fields(intent, user_query, schema, str(list(extracted_fields.keys())))
+    missing_fields = [f for f in required_fields if f not in extracted_fields and not pk_handler.is_primary_key(f, entity_type)]
+
+    if missing_fields:
+        return {"response": f"Please provide: {', '.join(missing_fields)}"}
+
+    # Handle primary keys and store_id restriction
+    operation_type = "update" if "UPDATE" in intent.value else "insert"
+    tenant_data = pk_handler.handle_primary_keys(required_fields, entity_type, operation_type, extracted_fields)
+    tenant_data["store_id"] = state["store_id"]  # Enforce tenant's store
+
+    # Generate SQL query
+    table = "stores" if entity_type == "store" else "offers"
+    if operation_type == "update":
+        pk_field = pk_handler.primary_keys[table]
+        set_clause = ", ".join([f"{k} = '{v}'" for k, v in tenant_data.items() if k != pk_field and k != "store_id"])
+        query = f"UPDATE {table} SET {set_clause} WHERE {pk_field} = '{tenant_data[pk_field]}' AND store_id = {state['store_id']}"
+    else:
+        cols = ", ".join(tenant_data.keys())
+        vals = ", ".join([f"'{v}'" for v in tenant_data.values()])
+        query = f"INSERT INTO {table} ({cols}) VALUES ({vals})"
+
+    # Execute query
+    result = sql_tool._run(query)
+    return {"tool_outputs": [{"tool": "sql_database_query", "output": result}]}
 
 def handle_tenant_data_operation(state: AgentState, intent: IntentCategory, user_query: str, main_query: str) -> AgentState:
     """

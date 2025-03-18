@@ -8,6 +8,7 @@ config = load_config()
 
 class IntentCategory(str, Enum):
     """Intent categories for the IntentRouterNode."""
+    print("--- Intent Router Node ---")
     CUSTOMER_QUERY = "customer_query"
     TENANT_ACTION = "tenant_action"
     OUT_OF_SCOPE = "out_of_scope"
@@ -37,23 +38,17 @@ class IntentCategory(str, Enum):
     TENANT_UPDATE_EVENT = "tenant_update_event"
     TENANT_INSERT_EVENT = "tenant_insert_event"
     TENANT_DELETE_EVENT = "tenant_delete_event"
-
-intent_llm = ChatGoogleGenerativeAI(model=config.llm.model_name, google_api_key=config.llm.api_key)
+    
+# intent_llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
+    # llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
+intent_llm = ChatGoogleGenerativeAI(model=config.llm.model_name, api_key=config.llm.api_key)
 
 def intent_router_node(state: AgentState) -> AgentState:
     """
     Intent Router Node: Classifies user intent and routes the conversation.
     """
-    print("--- Intent Router Node ---")
-    
     user_query = state["user_query"]
-    
-    # Convert conversation history from list of dicts to a formatted string
-    conversation_history_list = state.get("conversation_history", [])
-    conversation_history_str = "\n".join(
-        [f"User: {turn['user']}\nAssistant: {turn['bot']}" 
-         for turn in conversation_history_list if 'user' in turn and 'bot' in turn]
-    ) or "No previous conversation history available."
+    conversation_history_str = state.get("conversation_history", "")
     
     intent_prompt_template = ChatPromptTemplate.from_messages(
         [
@@ -63,11 +58,11 @@ def intent_router_node(state: AgentState) -> AgentState:
                 Your task is to classify user queries into predefined intent categories.
                 Analyze the user query and determine the MOST appropriate intent category from the list provided below.
                 
-                Conversation History: {conversation_history_str}
+                conversation history: {conversation_history_str}
                 
                 Intent Categories:
 
-                --- Customer Query Intents (Mall Information) ---
+                --- Customer Query Intents (Mall Information) --- (Keep existing customer intents)
                 - customer_query: General customer questions about malls, stores, brands, offers, events, etc.
                 - customer_query_mall_info: User is asking for mall information.
                 - customer_query_brand_info: User is asking for brand information.
@@ -83,7 +78,7 @@ def intent_router_node(state: AgentState) -> AgentState:
                 - greeting: User is greeting the chatbot.
                 - polite_closing: User is expressing thanks or closing politely.
 
-                --- Tenant Action Intents (Data Manipulation) ---
+                --- Tenant Action Intents (Data Manipulation - NEW SECTION) ---
                 - tenant_update_offer: Tenant wants to update an existing offer (e.g., "update offer", "modify offer").
                 - tenant_insert_offer: Tenant wants to create a new offer (e.g., "add new offer", "create offer").
                 - tenant_delete_offer: Tenant wants to delete an offer (e.g., "remove offer", "delete offer").
@@ -94,17 +89,17 @@ def intent_router_node(state: AgentState) -> AgentState:
                 - tenant_insert_event: Tenant wants to create a new event (e.g., "schedule an event").
                 - tenant_delete_event: Tenant wants to delete an event (e.g., "cancel an event").
 
-                --- Other Intents ---
+                --- Other Intents --- (Existing)
                 - tenant_action: General tenant-related action (fallback for more complex tenant requests).
                 - out_of_scope: Query is outside the scope of mall information and tenant actions.
 
                 Instructions:
-                1. Analyze the user query to understand the intent, using the conversation history for context.
+                1. Analyze the user query to understand the intent.
                 2. Classify the query into the MOST appropriate intent category.
                 3. Prioritize 'greeting' and 'polite_closing' for conversational inputs.
                 4. For list requests, choose 'list_' intents (SQL required).
                 5. For general mall info queries, use 'customer_query' or 'customer_query_*'.
-                6. For queries indicating tenants wanting to UPDATE, INSERT, or DELETE data related to offers, stores, events, etc., classify them into the corresponding 'tenant_update_*', 'tenant_insert_*', or 'tenant_delete_*' intents. Look for keywords like "update," "modify," "change," "add," "create," "new," "delete," "remove," along with entity names like "offer," "store," "event."
+                6. **For queries indicating tenants wanting to UPDATE, INSERT, or DELETE data related to offers, stores, events, etc., classify them into the corresponding 'tenant_update_*', 'tenant_insert_*', or 'tenant_delete_*' intents.**  Look for keywords like "update," "modify," "change," "add," "create," "new," "delete," "remove," along with entity names like "offer," "store," "event."
                 7. Classify general tenant-related queries (not specific CRUD) as 'tenant_action'.
                 8. Classify out-of-domain queries as 'out_of_scope'.
                 9. Return ONLY the intent category name. No explanations.
@@ -130,16 +125,12 @@ def intent_router_node(state: AgentState) -> AgentState:
                 Intent Category: tenant_update_event
 
                 Classify the intent for the following user query:
-                """
-            ),
+                """),
             ("human", "{user_query}"),
         ]
     )
     
-    intent_prompt = intent_prompt_template.format(
-        user_query=user_query, 
-        conversation_history_str=conversation_history_str
-    )
+    intent_prompt = intent_prompt_template.format(user_query=user_query, conversation_history_str=conversation_history_str)
     
     intent_response = intent_llm.invoke(intent_prompt)
     intent_category_str = intent_response.content.strip()
@@ -168,10 +159,10 @@ def intent_router_node(state: AgentState) -> AgentState:
         ]:
             next_node = "tool_selection_node"
         elif intent_category in [
-            IntentCategory.TENANT_UPDATE_OFFER,
-            IntentCategory.TENANT_INSERT_OFFER,
-            IntentCategory.TENANT_DELETE_OFFER,
-            IntentCategory.TENANT_UPDATE_STORE,
+            IntentCategory.TENANT_UPDATE_OFFER, # Route for Tenant Offer Updates
+            IntentCategory.TENANT_INSERT_OFFER, # Route for Tenant Offer Insertions
+            IntentCategory.TENANT_DELETE_OFFER, # Route for Tenant Offer Deletions
+            IntentCategory.TENANT_UPDATE_STORE, # Example - Add routes for other entities as needed
             IntentCategory.TENANT_INSERT_STORE,
             IntentCategory.TENANT_DELETE_STORE,
             IntentCategory.TENANT_UPDATE_EVENT,

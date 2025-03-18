@@ -9,11 +9,13 @@ class AgentState(TypedDict):
     intent: Optional[str]
     next_node: Optional[str]
     selected_tools: Optional[List[str]]
-    tool_outputs: Optional[Dict[str, str]]  # Updated to Dict for clarity
+    tool_outputs: Optional[Dict[str, str]]  # Already a Dict, good for clarity
     response: Optional[str]
     awaiting_tenant_input_field: Optional[str]
     tenant_data: Optional[Dict[str, Any]]
     current_field_index: Optional[int]
     tenant_main_query: Optional[str]
-    user_id: Optional[str]  # Added to track user-specific state
-    language: Optional[str] # Added to track language-specific state
+    user_id: Optional[str]  # Already present
+    language: Optional[str]  # Already present
+    role: Optional[str]  # Added to track user role (anonymous, customer, tenant)
+    store_id: Optional[int]  # Added to track tenant's store ID
