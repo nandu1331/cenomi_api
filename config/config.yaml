@@ -8,5 +8,5 @@ chromadb:
   persist_directory: "C:/Users/varun/OneDrive/Desktop/dev/webknot/cenomi/cenomi_api/data"
 
 llm:
-  model_name: "gemini-2.0-flash"
+  model_name: "gemini-1.5-pro"
   api_key: AIzaSyDRFZt1yPvW1L7DM5N0iZtjmLG1VfVCvfI
