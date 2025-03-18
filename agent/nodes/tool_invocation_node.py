@@ -169,65 +169,68 @@ def generate_sql_query(user_query: str, intent: IntentCategory, conversation_his
     sql_query_generation_chain = sql_generation_prompt | llm | sql_output_parser
     
     try:
-        sql_query = sql_query_generation_chain.invoke({"db_schema_info": db_schema_str, "user_query": user_query, "conversation_history": conversation_history, "intent": intent})
+        sql_query = sql_query_generation_chain.invoke({
+            "db_schema_info": db_schema_str,
+            "user_query": user_query,
+            "conversation_history": conversation_history,
+            "intent": intent
+        })
         print("Generated SQL Query:\n", sql_query)
         return sql_query
-
     except Exception as e:
-        error_message = f"Error generating SQL query: {e}"
-        print(error_message)
+        print(f"Error generating SQL query: {e}")
         return ""
 
 def tool_invocation_node(state: AgentState) -> AgentState:
     """
-        Tool Invocation Node: Invokes the selected tool and updates the state.
+    Tool Invocation Node: Executes selected tools based on the agent's state and updates the state with tool outputs.
     """
     print("--- Tool Invocation Node ---")
-    selected_tool_names: List[str] = state.get("selected_tools", [])
-    
-    tool_outputs: Dict[str, str] = {}
-    
+    selected_tool_names = state.get("selected_tools", [])
+    tool_outputs = {}
     user_query = state["user_query"]
     intent = state["intent"]
     
+    # Convert conversation history from list of dicts to a formatted string
+    conversation_history_list = state.get("conversation_history", [])
+    conversation_history_str = "\n".join(
+        [f"User: {turn['user']}\nAssistant: {turn['bot']}" 
+         for turn in conversation_history_list if 'user' in turn and 'bot' in turn]
+    ) or "No previous conversation history available."
+    
     for tool_name_str in selected_tool_names:
-        tool_name = ToolName(tool_name_str)
-        
-        if tool_name == ToolName.VECTOR_DB_SEARCH:
-            print(f"Invoking VectorDB Search Tool...")
-            vector_db_search_tool = VectorDBSearchTool()
-            user_query = state["user_query"]
-            hybrid_context = state.get("conversation_history", "")
-            tool_output = vector_db_search_tool.invoke(user_query, context=hybrid_context)
-            tool_outputs[ToolName.VECTOR_DB_SEARCH.value] = tool_output
-        elif tool_name == ToolName.SQL_DATABASE_QUERY:
-            print(f"Invoking SQL Database Tool...")
-            sql_database_tool = SQLDatabaseTool() 
-            conversation_history = state.get("conversation_history", "")
-            
-            # Additional preprocessing for vague queries
-            processed_user_query = preprocess_vague_query(user_query, conversation_history)
-            
-            dynamic_sql_query = generate_sql_query(processed_user_query, intent, conversation_history)
-
-            if dynamic_sql_query:
-                print("Executing Dynamic SQL Query...")
-                tool_output = sql_database_tool.run(dynamic_sql_query)
-                tool_outputs[ToolName.SQL_DATABASE_QUERY.value] = tool_output
-            else:
-                fallback_message = generate_fallback_query_message(user_query)
-                tool_outputs[ToolName.SQL_DATABASE_QUERY.value] = fallback_message
-                print(f"SQL Query Generation Failed. Using fallback message: {fallback_message}")
-        else:
-            print(f"Warning: Tool '{tool_name}' is selected but no invocation logic is implemented yet.")
-            tool_outputs[tool_name_str] = f"Tool '{tool_name_str}' invocation not implemented yet."
-            
-    next_node = "output_node"
+        try:
+            tool_name = ToolName(tool_name_str)
+            if tool_name == ToolName.VECTOR_DB_SEARCH:
+                print("Invoking VectorDB Search Tool...")
+                vector_db_search_tool = VectorDBSearchTool()
+                tool_output = vector_db_search_tool.run(user_query)
+                tool_outputs[ToolName.VECTOR_DB_SEARCH.value] = tool_output
+            elif tool_name == ToolName.SQL_DATABASE_QUERY:
+                print("Invoking SQL Database Tool...")
+                sql_database_tool = SQLDatabaseTool()
+                processed_user_query = preprocess_vague_query(user_query, conversation_history_str)
+                dynamic_sql_query = generate_sql_query(processed_user_query, intent, conversation_history_str)
+                if dynamic_sql_query:
+                    print("Executing Dynamic SQL Query...")
+                    tool_output = sql_database_tool.run(dynamic_sql_query)
+                    tool_outputs[ToolName.SQL_DATABASE_QUERY.value] = tool_output
+                else:
+                    print("SQL Query Generation Failed. Using fallback message.")
+                    tool_outputs[ToolName.SQL_DATABASE_QUERY.value] = (
+                        "I couldn’t generate a precise query for this request. "
+                        "Could you specify which item or store you’re asking about?"
+                    )
+        except Exception as e:
+            print(f"Error invoking tool {tool_name_str}: {e}")
+            tool_outputs[tool_name_str] = (
+                f"Sorry, I encountered an issue while processing this request: {str(e)}. "
+                "Please try again or provide more details!"
+            )
     
-    updated_state: AgentState = state.copy()
+    updated_state = state.copy()
     updated_state["tool_outputs"] = tool_outputs
-    updated_state["next_node"] = next_node
-    
+    updated_state["next_node"] = "llm_call_node"  # Ensure it continues to LLM for response generation
     print("Tool Invocation Node State (Updated):", updated_state)
     return updated_state
 

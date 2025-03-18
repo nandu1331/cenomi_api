@@ -5,8 +5,8 @@ database:
   db_uri: postgresql://cenomi_owner:npg_C2FBJbKqSY3H@ep-sparkling-sun-a1ye4tdb-pooler.ap-southeast-1.aws.neon.tech/cenomi?sslmode=require
 
 chromadb:
-  persist_directory: "C:/Users/varun/OneDrive/Desktop/dev/webknot/cenomi/cenomi_api/data"
+  persist_directory: "/Users/varunpanyam/dev/webknot/cenomi/cenomi_api/data"
 
 llm:
-  model_name: "gemini-1.5-pro"
+  model_name: "gemini-2.0-flash"
   api_key: AIzaSyDRFZt1yPvW1L7DM5N0iZtjmLG1VfVCvfI

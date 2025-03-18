@@ -1,50 +1,25 @@
-from langchain.memory import ConversationBufferMemory
 from agent.agent_state import AgentState
-from config.config_loader import load_config
-from langchain_google_genai import ChatGoogleGenerativeAI
-
-config = load_config()
-
-buffer_memory = ConversationBufferMemory(
-    memory_key="chat_history", 
-    input_key="user_query", 
-    output_key="response"
-)
-# summary_memory = ConversationSummaryMemory(
-    
-#     llm = ChatGoogleGenerativeAI(model=config.llm.model_name, api_key=config.llm.api_key),
-#     memory_key="summary_history", 
-#     input_key="user_query", 
-#     output_key="response"
-# )
 
 def memory_node(state: AgentState) -> AgentState:
     """
-    Memory node: Manages conversation history using Langchain's buffer memory only.
+    Memory Node: Updates conversation history within the graph for the current invocation.
     """
     print("--- Memory Node ---")
-    user_query = state["user_query"]
+    
+    # Ensure conversation_history exists
+    if "conversation_history" not in state or state["conversation_history"] is None:
+        state["conversation_history"] = []
+    
+    user_query = state.get("user_query", "")
     assistant_response = state.get("response", "").strip()
-    tenant_main_query = state.get("tenant_main_query", "")
     
-    # Save only the current turn to buffer memory
-    user_queries = {"user_query": user_query, "tenant_main_query": tenant_main_query}
-    buffer_memory.save_context(user_queries, {"response": assistant_response})
+    # Append only if there's a valid response (avoid duplicates or errors)
+    if assistant_response and assistant_response != "Sorry, I couldn't process your request.":
+        state["conversation_history"].append({
+            "user": user_query,
+            "bot": assistant_response
+        })
     
-    # Load the updated buffer history
-    buffer_history_dict = buffer_memory.load_memory_variables({})
-    updated_buffer_history = buffer_history_dict.get("chat_history", "")
-    
-    # Use buffer history as the conversation context
-    hybrid_context = "Detailed Recent Conversation:\n" + updated_buffer_history
-    
-    updated_state = AgentState(
-        user_query=user_query,
-        buffer_history=updated_buffer_history,
-        summary_history=None,  # Remove summary history
-        conversation_history=hybrid_context,
-        response=state["response"]
-    )
-    
+    updated_state = state.copy()
     print("Memory Node State (Updated):", updated_state)
     return updated_state

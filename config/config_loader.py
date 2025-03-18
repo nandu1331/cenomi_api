@@ -16,7 +16,7 @@ class Config(BaseModel):
     database: DatabaseConfig
     llm: LlmConfig
     
-def load_config(config_path=r"C:\Users\varun\OneDrive\Desktop\dev\webknot\cenomi\cenomi_api\config\config.yaml"):
+def load_config(config_path=r"/Users/varunpanyam/dev/webknot/cenomi/cenomi_api/config/config.yaml"):
     """Loads the configuration from the YAML file."""
     with open(config_path, "r") as file:
         config_dict = yaml.safe_load(file)
