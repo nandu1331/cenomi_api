@@ -20,7 +20,6 @@ class ChatResponse(BaseModel):
 agent_graph = create_agent_graph()
 
 def fetch_user_details(user_id: str) -> dict:
-    """Fetch user role and store_id."""
     connection = get_db_connection()
     if not connection:
         return {}
@@ -29,47 +28,29 @@ def fetch_user_details(user_id: str) -> dict:
             cursor.execute("SELECT role, store_id FROM users WHERE user_id = %s", (user_id,))
             result = cursor.fetchone()
             return {"role": result[0], "store_id": result[1]} if result else {}
-    except Exception as e:
-        print(f"Error fetching user details: {e}")
-        return {}
     finally:
         connection.close()
 
 def fetch_conversation_history(user_id: str) -> list[dict[str, str]]:
-    """Fetch conversation history from the chat_history table."""
     connection = get_db_connection()
     if not connection:
         return []
     try:
         with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT user_query, bot_response 
-                FROM chat_history 
-                WHERE user_id = %s 
-                ORDER BY timestamp ASC
-            """, (user_id,))
+            cursor.execute("SELECT user_query, bot_response FROM chat_history WHERE user_id = %s ORDER BY timestamp ASC", (user_id,))
             rows = cursor.fetchall()
             return [{"user": row[0], "bot": row[1]} for row in rows]
-    except Exception as e:
-        print(f"Error fetching conversation history: {e}")
-        return []
     finally:
         connection.close()
 
 def store_conversation_history(user_id: str, user_query: str, bot_response: str):
-    """Store a new interaction in the chat_history table."""
     connection = get_db_connection()
     if not connection:
         return
     try:
         with connection.cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO chat_history (user_id, user_query, bot_response)
-                VALUES (%s, %s, %s)
-            """, (user_id, user_query, bot_response))
+            cursor.execute("INSERT INTO chat_history (user_id, user_query, bot_response) VALUES (%s, %s, %s)", (user_id, user_query, bot_response))
             connection.commit()
-    except Exception as e:
-        print(f"Error storing conversation history: {e}")
     finally:
         connection.close()
 
@@ -80,10 +61,7 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=500, detail="Database connection error")
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT user_id, role, store_id FROM users WHERE email = %s AND password = %s",
-                (request.email, request.password)
-            )
+            cursor.execute("SELECT user_id, role, store_id FROM users WHERE email = %s AND password = %s", (request.email, request.password))
             user = cursor.fetchone()
             if user:
                 return {"user_id": str(user[0]), "role": user[1], "store_id": user[2]}
@@ -106,12 +84,10 @@ async def chat(request: ChatRequest):
             "role": user_details.get("role", "anonymous"),
             "store_id": user_details.get("store_id")
         }
-        print("INPUT: ", input_data)
         result = agent_graph.invoke(input_data, {"recursion_limit": 500})
         response_text = result.get("response", "Sorry, I couldn't process your request.")
         
         store_conversation_history(user_id, request.text, response_text)
-        
         return ChatResponse(message=response_text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
