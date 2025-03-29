@@ -11,13 +11,12 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from config.config_loader import load_config
 
 config = load_config()
-# Define Tool Names
+
 class ToolName(str, Enum):
     VECTOR_DB_SEARCH = "vector_db_search_tool"
     SQL_DATABASE_QUERY = "sql_database_query_tool"
-    NO_TOOL = "no_tool"  # For direct LLM responses
+    NO_TOOL = "no_tool"
 
-# llm = init_chat_model(model="llama3-70b-8192", model_provider="groq")
 llm = ChatGoogleGenerativeAI(model=config.llm.model_name, api_key=config.llm.api_key)
 output_parser = StrOutputParser()
 
@@ -25,39 +24,30 @@ def tool_selection_node(state: AgentState) -> AgentState:
     """
     Intelligent Tool Selection Node: Routes vague queries to vector tool and specific queries to SQL tool.
     """
-    print("--- Intelligent Tool Selection Node ---")
     user_query: str = state.get("user_query")
     intent: IntentCategory = state.get("intent")
+    mall_name = state.get("mall_name")
 
-    # 1. Direct routing for conversational intents
     if intent in [IntentCategory.GREETING, IntentCategory.POLITE_CLOSING]:
         return _prepare_response_state(state, [], {}, "llm_call_node")
 
-    # 2. Direct routing for tenant actions
     if _is_tenant_action_intent(intent):
         return _prepare_response_state(state, [ToolName.SQL_DATABASE_QUERY.value], {}, "tool_invocation_node")
 
-    # 3. For out-of-scope intents, go directly to LLM
     if intent == IntentCategory.OUT_OF_SCOPE:
         return _prepare_response_state(state, [], {}, "llm_call_node")
 
-    # 4. Determine if query is specific or vague and route accordingly
     query_specificity = _analyze_query_specificity(user_query, intent)
     
-    # 5. Route based on specificity
     if query_specificity['is_specific']:
-        print("Query identified as specific. Routing to SQL Database Tool.")
         selected_tool = ToolName.SQL_DATABASE_QUERY.value
         next_node = "tool_invocation_node"
         tool_output = {}
     else:
-        print("Query identified as vague. Routing to Vector DB Search Tool.")
         vector_db_tool = VectorDBSearchTool()
-        vector_db_output = vector_db_tool.run(user_query)
+        vector_db_output = vector_db_tool.run(user_query, mall_name=mall_name)
         
-        # Check if vector DB output is relevant enough
         relevance_score = evaluate_relevance_function(user_query, vector_db_output, intent)
-        print(f"VectorDB relevance score: {relevance_score}")
         
         if relevance_score < 0.6:
             selected_tool = ToolName.SQL_DATABASE_QUERY.value
@@ -92,20 +82,19 @@ def _analyze_query_specificity(query: str, intent: IntentCategory) -> Dict[str, 
     """
     query_lower = query.lower()
     
-    # 1. Check if intent directly indicates a specific query
     specific_intents = [
         IntentCategory.LIST_MALLS,
         IntentCategory.LIST_STORES_IN_MALL,
         IntentCategory.LIST_SERVICES_IN_MALL,
         IntentCategory.LIST_EVENTS_IN_MALL,
-        IntentCategory.CUSTOMER_QUERY_EVENT_INFO,
-        IntentCategory.CUSTOMER_QUERY_SERVICE_QUERY
+        IntentCategory.CUSTOMER_QUERY_SPECIFIC_STORE,
+        IntentCategory.CUSTOMER_QUERY_SPECIFIC_EVENT,
+        IntentCategory.CUSTOMER_QUERY_SPECIFIC_RESTAURANT,
+        IntentCategory.CUSTOMER_QUERY_STORE_CONTACT,
     ]
     
     intent_suggests_specific = intent in specific_intents
     
-    # 2. Check for specific keywords/patterns
-    # Indicators of specific queries (SQL-friendly)
     list_keywords = ["list", "show", "what are", "give me all", "show me all", "display all"]
     specific_entity_keywords = ["mall", "store", "event", "service", "offer", "brand", "promotion"]
     filter_keywords = ["where", "which", "with", "that have", "that are", "located in", "available at"]
@@ -113,11 +102,9 @@ def _analyze_query_specificity(query: str, intent: IntentCategory) -> Dict[str, 
     attribute_keywords = ["name", "location", "price", "time", "date", "phone", "address", "hours", "operating hours"]
     comparison_keywords = ["more than", "less than", "greater than", "before", "after", "between"]
     
-    # Indicators of vague queries (Vector DB-friendly)
     vague_keywords = ["about", "information", "details", "tell me about", "what is", "how", "why", "recommend", "suggest", "best", "popular"]
     conceptual_keywords = ["experience", "atmosphere", "feel", "quality", "reputation", "review", "opinion", "think", "consider"]
     
-    # Check for specific patterns
     has_list_keyword = any(keyword in query_lower for keyword in list_keywords)
     has_filter_keyword = any(keyword in query_lower for keyword in filter_keywords)
     has_specific_entity = any(keyword in query_lower for keyword in specific_entity_keywords)
@@ -125,21 +112,16 @@ def _analyze_query_specificity(query: str, intent: IntentCategory) -> Dict[str, 
     has_attribute_keyword = any(keyword in query_lower for keyword in attribute_keywords)
     has_comparison = any(keyword in query_lower for keyword in comparison_keywords)
     
-    # Check for vague patterns
     has_vague_keyword = any(keyword in query_lower for keyword in vague_keywords)
     has_conceptual_keyword = any(keyword in query_lower for keyword in conceptual_keywords)
     
-    # 3. Check for structured query patterns
     has_structured_pattern = bool(re.search(r'\b(in|at|on|for|with|during|before|after)\b [\w\s]+', query_lower))
     
-    # 4. Check for quantitative inquiries
     has_quantity_pattern = bool(re.search(r'\b(how many|count|total|number of)\b', query_lower))
     
-    # 5. Check for entity specification
-    has_named_entity = bool(re.search(r'"([^"]+)"|\'([^\']+)\'', query))  # Quoted entity names
-    has_proper_noun = bool(re.search(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', query))  # Proper nouns
+    has_named_entity = bool(re.search(r'"([^"]+)"|\'([^\']+)\'', query))
+    has_proper_noun = bool(re.search(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', query))
     
-    # 6. Calculate specificity score
     specificity_indicators = [
         has_list_keyword,
         has_filter_keyword,
@@ -162,15 +144,12 @@ def _analyze_query_specificity(query: str, intent: IntentCategory) -> Dict[str, 
     specificity_score = sum(1 for indicator in specificity_indicators if indicator)
     vagueness_score = sum(1 for indicator in vagueness_indicators if indicator)
     
-    # Analyze the query text for specificity using LLM if needed
     llm_specificity_score = 0
-    if abs(specificity_score - vagueness_score) <= 2:  # Close call, use LLM
+    if abs(specificity_score - vagueness_score) <= 2:
         llm_specificity_score = _get_llm_specificity_score(query)
     
-    # Calculate final specificity score considering all factors
     final_specificity_score = specificity_score - vagueness_score + llm_specificity_score
     
-    # Determine if query is specific or vague
     is_specific = final_specificity_score > 0
     
     return {
@@ -231,11 +210,9 @@ def _get_llm_specificity_score(query: str) -> int:
         specificity_chain = specificity_prompt | llm | output_parser
         score_text = specificity_chain.invoke({"query": query}).strip()
         score = int(score_text)
-        # Ensure the score is within the expected range
         return max(-2, min(2, score))
     except Exception as e:
-        print(f"Error getting LLM specificity score: {e}")
-        return 0  # Neutral score if LLM fails
+        return 0 
 
 def _prepare_response_state(state: AgentState, selected_tools: List[str], tool_output: Dict, next_node: str) -> AgentState:
     """Prepare the response state with the selected tools and outputs."""
@@ -243,10 +220,5 @@ def _prepare_response_state(state: AgentState, selected_tools: List[str], tool_o
     updated_state["selected_tools"] = selected_tools
     updated_state["tool_output"] = tool_output
     updated_state["next_node"] = next_node
-    
-    print("Tool Selection Node output:", {
-        "selected_tools": selected_tools,
-        "next_node": next_node
-    })
     
     return updated_state

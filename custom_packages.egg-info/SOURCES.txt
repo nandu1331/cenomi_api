@@ -9,7 +9,6 @@ agent/nodes/intent_router_node.py
 agent/nodes/llm_call_node.py
 agent/nodes/memory_node.py
 agent/nodes/output_node.py
-agent/nodes/response_generation_node.py
 agent/nodes/tenant_action_node.py
 agent/nodes/tool_invocation_node.py
 agent/nodes/tool_selection_node.py

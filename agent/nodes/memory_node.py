@@ -1,50 +1,46 @@
-from langchain.memory import ConversationBufferMemory
 from agent.agent_state import AgentState
-from config.config_loader import load_config
-from langchain_google_genai import ChatGoogleGenerativeAI
-
-config = load_config()
-
-buffer_memory = ConversationBufferMemory(
-    memory_key="chat_history", 
-    input_key="user_query", 
-    output_key="response"
-)
-# summary_memory = ConversationSummaryMemory(
-    
-#     llm = ChatGoogleGenerativeAI(model=config.llm.model_name, api_key=config.llm.api_key),
-#     memory_key="summary_history", 
-#     input_key="user_query", 
-#     output_key="response"
-# )
+from agent.utils.database_utils import db_execute
 
 def memory_node(state: AgentState) -> AgentState:
-    """
-    Memory node: Manages conversation history using Langchain's buffer memory only.
-    """
-    print("--- Memory Node ---")
+    conversation_history = state.get("conversation_history", [])
+    if isinstance(conversation_history, str):
+        conversation_history = []
+
     user_query = state["user_query"]
     assistant_response = state.get("response", "").strip()
-    tenant_main_query = state.get("tenant_main_query", "")
     
-    # Save only the current turn to buffer memory
-    user_queries = {"user_query": user_query, "tenant_main_query": tenant_main_query}
-    buffer_memory.save_context(user_queries, {"response": assistant_response})
-    
-    # Load the updated buffer history
-    buffer_history_dict = buffer_memory.load_memory_variables({})
-    updated_buffer_history = buffer_history_dict.get("chat_history", "")
-    
-    # Use buffer history as the conversation context
-    hybrid_context = "Detailed Recent Conversation:\n" + updated_buffer_history
-    
-    updated_state = AgentState(
-        user_query=user_query,
-        buffer_history=updated_buffer_history,
-        summary_history=None,  # Remove summary history
-        conversation_history=hybrid_context,
-        response=state["response"]
+    new_entry = {
+        "user_query": user_query,
+        "response": assistant_response
+    }
+
+    updated_conversation_history = (conversation_history + [new_entry])[-10:]
+    hybrid_context = "Detailed Recent Conversation:\n" + "\n".join(
+        [f"User: {entry['user_query']}\nAssistant: {entry['response']}" 
+         for entry in updated_conversation_history]
     )
     
-    print("Memory Node State (Updated):", updated_state)
+    updated_state = state.copy()
+    updated_state["conversation_history"] = updated_conversation_history
+    updated_state["conversation_history_str"] = hybrid_context 
+
+    # Insert messages into conversation_messages
+    session_id = state["session_id"]
+    # User message
+    db_execute(
+        """
+        INSERT INTO conversation_messages (session_id, role, content, timestamp)
+        VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+        """,
+        (session_id, "user", user_query)
+    )
+    # Assistant message
+    db_execute(
+        """
+        INSERT INTO conversation_messages (session_id, role, content, timestamp)
+        VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+        """,
+        (session_id, "assistant", assistant_response)
+    )
+
     return updated_state

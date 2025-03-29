@@ -2,11 +2,15 @@ groq:
   api_key: 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
 
 database:
-  db_uri: postgresql://cenomi_owner:npg_C2FBJbKqSY3H@ep-sparkling-sun-a1ye4tdb-pooler.ap-southeast-1.aws.neon.tech/cenomi?sslmode=require
+  db_uri: postgresql://cenomi_owner:npg_kAU5vEb1zWNi@ep-green-lake-a13nq62h-pooler.ap-southeast-1.aws.neon.tech/cenomi?sslmode=require
 
 chromadb:
-  persist_directory: "C:/Users/varun/OneDrive/Desktop/dev/webknot/cenomi/cenomi_api/data"
+  persist_directory: "D:/cenomi_api/data"
 
 llm:
-  model_name: "gemini-1.5-pro"
-  api_key: AIzaSyDRFZt1yPvW1L7DM5N0iZtjmLG1VfVCvfI
+  model_name: "gemini-2.0-flash"
+  api_key: AIzaSyCPOEDQUQDHkkH8TnLqcPJmNw70AUl970Q
+
+pineconedb:
+  api_key: "pcsk_3fzt1G_3XP4dK7XEkT3Q96JXJXphvCWBbZDbbWpPC1ESHwLcYYYwVCtzBFVEWHnGpnTcjN"
+  index_name: "mall-index"

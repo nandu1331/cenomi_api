@@ -13,9 +13,8 @@ class SQLDatabaseTool(BaseTool):
         "Particularly useful for listing information, counting, or retrieving specific records based on defined criteria."
     )
     
-    def _run(self, query: str) -> str:
+    def _run(self, query: str, isPrimaryKey=False, params: tuple = None) -> str:
         """Execute the SQL query and return the results."""
-        print(f"--- SQLDatabaseTool: Running with query: {query} ---")
         
         connection = get_db_connection()
         if not connection:
@@ -23,11 +22,19 @@ class SQLDatabaseTool(BaseTool):
         
         try:
             with connection.cursor() as cursor:
-                cursor.execute(query)
+                if params is not None:
+                    if not isinstance(params, (tuple, list)):
+                        raise ValueError("params must be a tuple or list")
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+                    
+                if isPrimaryKey:
+                    return cursor.fetchall()
+                
                 connection.commit()
                 
-                # Check if the query is a SELECT query
-                if query.strip().lower().startswith("select"):
+                if not isPrimaryKey and query.strip().lower().startswith("select"):
                     results = cursor.fetchall()
                     column_names = [desc[0] for desc in cursor.description]
                     
@@ -43,14 +50,14 @@ class SQLDatabaseTool(BaseTool):
                         output_string += row_str
                         
                     return output_string
+                elif isPrimaryKey:
+                    return cursor.fetchall()
                 else:
-                    # For non-SELECT queries, just return a success message.
                     return "Query executed successfully."
         
         except Exception as e:
             error_message = f"Error during SQL query execution: {e}"
-            print(error_message)
-            return error_message
+            raise
         finally:
             connection.close()
         

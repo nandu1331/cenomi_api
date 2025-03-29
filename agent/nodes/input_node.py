@@ -7,33 +7,22 @@ def input_node(state):
         Args: state (Dict[str, Any]): The current state dictionary.
         Returns: state (Dict[str, Any]): The updated state dictionary.
     """
-    print("--- Input Node ---")
-    user_query = state["user_query"]
+    #("--- Input Node ---")
     user_query = state.get("user_query")
     conversation_history: List[Dict[str, str]] = state.get("conversation_history", [])
-    tenant_data: Dict[str, Any] = state.get("tenant_data", {})
-    awaiting_tenant_input_field = state.get("awaiting_tenant_input_field")
-    current_field_index: int = state.get("current_field_index", 0)
-    if not current_field_index:
-        current_field_index = 0
+    role = state.get("role", "GUEST")  # Default to GUEST if not provided
+    mall_name = state.get("mall_name", "")
+    user_id = state.get("user_id")
+    session_id = state.get("session_id")
 
     updated_state: AgentState = state.copy()
+    updated_state["role"] = role
+    updated_state["user_id"] = user_id
+    updated_state["mall_name"] = mall_name
+    updated_state["user_query"] = user_query 
+    updated_state["conversation_history"] = conversation_history
+    updated_state["session_id"] = session_id
+    updated_state["tenant_data"] = {}
+    updated_state["next_node"] = "intent_router_node"
 
-    if awaiting_tenant_input_field: # If agent is waiting for specific input (multi-turn tenant action)
-        tenant_data[awaiting_tenant_input_field] = user_query # Store tenant input in tenant_data - CORRECTED LINE
-        updated_state["tenant_data"] = tenant_data # Update tenant_data in state - CORRECTED LINE
-        # updated_state["awaiting_tenant_input_field"] = None # Clear awaiting field as input is received 
-        
-        current_field_index += 1
-        updated_state["current_field_index"]
-        
-        updated_state["next_node"] = "tenant_action_node"
-
-    else: # Normal input (not part of multi-turn tenant action)
-        print("Input Node - Normal user query (not awaiting specific input)")
-        updated_state["user_query"] = user_query # Set user query in state
-        updated_state["conversation_history"] = conversation_history # Pass conversation history (might already be there)
-        updated_state["next_node"] = "intent_router_node" # Proceed to memory node for intent routing
-
-    print("Input Node State (Updated):", updated_state)
     return updated_state

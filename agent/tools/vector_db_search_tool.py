@@ -1,10 +1,10 @@
 from typing import Any
 from langchain.tools import BaseTool
-from agent.utils.database_utils import get_vector_db_client, get_vector_db_collection
+from agent.utils.database_utils import get_vector_db_client, get_vector_db_index
 from langchain_huggingface import HuggingFaceEmbeddings
 
 class VectorDBSearchTool(BaseTool):
-    """Tool to perform vector database search and retrieve relevant data."""
+    """Tool to perform vector database search and retrieve relevant data using Pinecone."""
     
     name: str = "vector_database_search"
     description: str = (
@@ -12,49 +12,48 @@ class VectorDBSearchTool(BaseTool):
         "Input should be a natural language query to search for relevant documents."
     )
     
-    def _run(self, query: str, context: str = None) -> str:
-        """Use the ChromaDB vector database to search for semantically similar documents."""
-        print(f"--- VectorDBSearchTool: Running with query: {query} ---")
+    def _run(self, query: str, context: str = None, mall_name: str = None) -> str:
+        """Use the Pinecone vector database to search for semantically similar documents."""
         
-        chroma_client = get_vector_db_client()
-        chroma_collection = get_vector_db_collection(chroma_client)
+        # Initialize Pinecone client and index
+        vector_db_client = get_vector_db_client()
+        index_name = "mall-index"  # Match the index used in ingestion
+        vector_db_index = get_vector_db_index(vector_db_client, index_name)
         
-        if not chroma_collection:
-            return "Error: Could not access VectorDB collection."
+        if not vector_db_index:
+            return "Error: Could not access Pinecone index."
         
+        # Initialize embedding model
         embedding_model = HuggingFaceEmbeddings(model_name="all-mpnet-base-v2")
         
-        if context:
-            combined_query = context + " " + query
-        else:
-            combined_query = query
-            
+        # Combine context and query if context is provided
+        combined_query = f"{context} {query}" if context else query
         query_embedding = embedding_model.embed_query(combined_query)
         
         try:
-            results = chroma_collection.query(
-                query_embeddings=[query_embedding],
-                n_results=5
+            # Query Pinecone
+            results = vector_db_index.query(
+                vector=query_embedding,
+                top_k=5,
+                include_metadata=True  # Retrieve metadata stored in Pinecone
             )
             
-            if not results or not results['ids'] or not results['ids'][0] or not results['documents'] or not results['documents'][0]: 
+            if not results or not results.get("matches"):
                 return "No relevant information found in the mall database for your query."
             
+            # Format results
             output_string = "Vector Database Search Results:\n\n"
-            for i, document in enumerate(results['documents'][0]):
+            for i, match in enumerate(results["matches"]):
                 output_string += f"--- Result {i+1} ---\n"
+                metadata = match["metadata"]
+                document = metadata.get("document", "No document text available")
                 output_string += f"Document Snippet: {document[:200]}...\n"
-                if 'metadatas' in results and results['metadatas'] and results['metadatas'][0] and results['metadatas'][0][i]:
-                    metadata = results['metadatas'][0][i]
-                    output_string += f"Metadata: {metadata}\n"
-                output_string += "\n"
+                output_string += f"Metadata: {metadata}\n\n"
                 
             return output_string
         
         except Exception as e:
-            error_message = f"Error during VectorDB search: {e}"
-            print(error_message)
-            return error_message
+            return f"Error during VectorDB search: {e}"
         
     async def _arun(self, query: str) -> str:
         """Asynchronous run method (not implemented for this basic tool)."""

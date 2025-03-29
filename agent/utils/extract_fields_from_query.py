@@ -4,10 +4,12 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import JsonOutputParser
 json_output_parser = JsonOutputParser()
 from config.config_loader import load_config
+from agent.utils.database_utils import load_database_schema_from_cache
 
 config = load_config()
 
 llm = ChatGoogleGenerativeAI(model=config.llm.model_name, api_key=config.llm.api_key)
+db_schema = load_database_schema_from_cache()
 
 # --- Fixed Prompt Template for Field Extraction ---
 field_extraction_prompt_template = ChatPromptTemplate.from_messages([
@@ -17,11 +19,17 @@ field_extraction_prompt_template = ChatPromptTemplate.from_messages([
         
         **Entity Type:** {entity_type}
         **User Query:** {user_query}
+        **Database Schema:** {db_schema}
         
         **IMPORTANT: You must ONLY output a valid JSON object with no additional text or explanations.**
         
         **Instructions:**
-        - Analyze the User Query and identify any field names and their corresponding values that are related to the {entity_type}.
+        - Analyze the User Query, Database schema and identify any field names and their corresponding values that are related to the {entity_type}.
+        - Remember the field names you extract should match with the field names of the entity in the Database schema.
+        - The UNIQUE FIELD would be usually the name or title provided in the query.
+        - The unique field value you extracted should be TITLE case.
+            Example:
+                
         - Assume that field names might be mentioned explicitly or implicitly in the query.
         - Only include fields where values can be reliably extracted.
         - Format your entire response as a valid JSON object.
@@ -57,7 +65,8 @@ def extract_fields_from_query(user_query: str, entity_type: str) -> Dict[str, An
         # Include response format instructions
         extraction_response = field_extraction_chain.invoke({
             "user_query": user_query,
-            "entity_type": entity_type
+            "entity_type": entity_type,
+            "db_schema": db_schema
         })
         
         return extraction_response
